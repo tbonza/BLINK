@@ -1,6 +1,8 @@
 import argparse
 from collections import defaultdict
 import csv
+import json
+import re
 
 import torch
 import torch.nn as nn
@@ -10,9 +12,11 @@ import blink.ner as NER
 
 
 def sentence_dataset_tokenizer(inst:str) -> list:
-    pass
+    pat = re.compile("\.\s+")
+    for sentence in re.split(pat, inst):
+        yield sentence
 
-def sentence_dataset_prep(*args):
+def sentence_dataset_prep(uuid_fpath:str, test_fpath:str, *args):
     """ Writes out a UUID file and a input file for SentenceDataset. """
     prep = []
     for inst in args:
@@ -37,7 +41,15 @@ def sentence_dataset_prep(*args):
 
         prep.append((fpath, uuids))
 
-    return prep
+    with open(uuid_fpath, "w") as f:
+        json.dump(prep, f)
+
+    with open(test_fpath, "w") as f:
+        for _, uuids in prep:
+            for sentence in uuids.keys():
+
+                f.write(sentence + "\n")
+
 
 class SentenceDataset(Dataset):
     """ Sentence Dataset
