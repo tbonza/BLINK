@@ -40,4 +40,3 @@ class Flair(NER_model):
                 mention["sent_idx"] = sent_idx
             mentions.extend(sent_mentions)
         return {"sentences": sentences, "mentions": mentions}
-

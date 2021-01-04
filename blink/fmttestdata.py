@@ -1,11 +1,32 @@
+import argparse
+
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 
 import blink.ner as NER
 
-class SentenceDataset(Dataset):
+
+def sentence_dataset_tokenizer(items:list):
+    """ Writes out a UUID file and a input file for SentenceDataset. """
     pass
+
+class SentenceDataset(Dataset):
+    """ Sentence Dataset
+
+    Input file should be a newline delimited file with one
+    sentence per line. Each line should be unique so we
+    don't run the same prediction multiple times.
+    """
+
+    def __init__(self, fpath:str):
+        pass
+    
+    def __len__(self):
+        return 0
+
+    def __getitem__(self, idx):
+        pass
 
 def _annotate(ner_model, input_sentences):
     ner_output_data = ner_model.predict(input_sentences)
@@ -30,18 +51,41 @@ def _annotate(ner_model, input_sentences):
         samples.append(record)
     return samples
 
-def run():
+def run(args, logger, model):
     pass
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
 
-    # Parameters and DataLoaders
+    # test data
 
-    input_size = 5
-    output_size = 2
+    parser.add_argument(
+        "--test_input_size", "-i", action="store_true", help="Size of test input."
+    )
 
-    batch_size = 30
-    data_size = 100
+    parser.add_argument(
+        "--test_output_size", "-o", action="store_true", help="Size of test output."
+    )
+
+    # batch 
+
+    parser.add_argument(
+        "--batch_size", action="store_true", help="Size of each batch processed."
+    )
+
+    parser.add_argument(
+        "--output_size", action="store_true", help="Size of total amount of data."
+    )
+
+
+    #input_size = 5
+    #output_size = 2
+
+    #batch_size = 30
+    #data_size = 100
+
+    args = parser.parse_args()
+    run(args, logger, *models)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
