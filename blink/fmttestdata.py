@@ -1,4 +1,11 @@
+import torch
+import torch.nn as nn
+from torch.utils.data import Dataset, DataLoader
 
+import blink.ner as NER
+
+class SentenceDataset(Dataset):
+    pass
 
 def _annotate(ner_model, input_sentences):
     ner_output_data = ner_model.predict(input_sentences)
@@ -25,3 +32,33 @@ def _annotate(ner_model, input_sentences):
 
 def run():
     pass
+
+if __name__ == "__main__":
+
+    # Parameters and DataLoaders
+
+    input_size = 5
+    output_size = 2
+
+    batch_size = 30
+    data_size = 100
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    rand_loader = DataLoader(dataset=SentenceDataset(input_size, data_size),
+            batch_size=batch_size, shuffle=True)
+
+    ner_model = NER.get_model()
+
+    if torch.cuda.device_count() > 1:
+        print("Let's use ", torch.cuda.device_count(), " GPU's!")
+        ner_model = nn.DataParallel(ner_model)
+
+    ner_model.to(device)
+
+    for data in rand_loader:
+        input = data.to(device)
+        output = ner_model.predict(input)
+        print("Outside: input size", input.size(),
+                "output_size", output.size())
+
