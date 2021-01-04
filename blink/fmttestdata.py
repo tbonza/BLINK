@@ -1,4 +1,6 @@
 import argparse
+from collections import defaultdict
+import csv
 
 import torch
 import torch.nn as nn
@@ -7,9 +9,35 @@ from torch.utils.data import Dataset, DataLoader
 import blink.ner as NER
 
 
-def sentence_dataset_tokenizer(items:list):
-    """ Writes out a UUID file and a input file for SentenceDataset. """
+def sentence_dataset_tokenizer(inst:str) -> list:
     pass
+
+def sentence_dataset_prep(*args):
+    """ Writes out a UUID file and a input file for SentenceDataset. """
+    prep = []
+    for inst in args:
+
+        uuids = defaultdict(list)
+
+        uuid = inst["uuid"]
+        fpath = inst["fpath"]
+        text_id = inst["text_id"]
+
+        with open(fpath, "r") as f:
+            reader = csv.DictReader(f)
+
+            for row in reader:
+
+                instid = row[uuid]
+                text = row[text_id]
+
+                for sentence in sentence_dataset_tokenizer(text):
+                    uuids[sentence].append(uuid)
+
+
+        prep.append((fpath, uuids))
+
+    return prep
 
 class SentenceDataset(Dataset):
     """ Sentence Dataset
