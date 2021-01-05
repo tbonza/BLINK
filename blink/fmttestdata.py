@@ -1,5 +1,6 @@
 import argparse
 from collections import defaultdict
+from datetime import datetime
 import csv
 import json
 import re
@@ -9,46 +10,59 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 
 import blink.ner as NER
+import blink.candidate_ranking.utils as utils
 
+def create_uuid(kindofuniqueid:str, datetimestr:str)->str:
+    return kindofuniqueid + "_" +str(datetime.fromisoformat(datetimestr)).replace(" ","T")
 
 def sentence_dataset_tokenizer(inst:str) -> list:
+    inst = inst.splitlines()
     pat = re.compile("\.\s+")
-    for sentence in re.split(pat, inst):
-        yield sentence
+    for section in inst:
+        for sentence in re.split(pat, section):
+            sentence = sentence.strip()
+            if len(sentence) > 0:
+                yield sentence
 
-def sentence_dataset_prep(uuid_fpath:str, test_fpath:str, *args):
-    """ Writes out a UUID file and a input file for SentenceDataset. """
+def sentence_dataset_prep(uuid_fpath:str, test_fpath:str, *fpaths):
+    """ Writes out a UUID file and a input file for SentenceDataset. 
+
+        ***
+        Assumes your files have the standard attributes "uuid", "text".
+        ***
+    """
+    UUID = "uuid"
+    TEXT = "text"
     prep = []
-    for inst in args:
+    for fpath in fpaths:
+        logger.info("Processing {}".format(fpath))
 
         uuids = defaultdict(list)
-
-        uuid = inst["uuid"]
-        fpath = inst["fpath"]
-        text_id = inst["text_id"]
 
         with open(fpath, "r") as f:
             reader = csv.DictReader(f)
 
             for row in reader:
 
-                instid = row[uuid]
-                text = row[text_id]
+                instid = row[UUID]
+                text = row[TEXT]
 
                 for sentence in sentence_dataset_tokenizer(text):
-                    uuids[sentence].append(uuid)
-
+                    uuids[sentence].append(instid)
 
         prep.append((fpath, uuids))
 
     with open(uuid_fpath, "w") as f:
         json.dump(prep, f)
+    logger.info("Wrote out test UUID file. {}".format(uuid_fpath))
 
     with open(test_fpath, "w") as f:
         for _, uuids in prep:
             for sentence in uuids.keys():
 
                 f.write(sentence + "\n")
+    logger.info("Wrote out test file. {}".format(test_fpath))
+    return 0
 
 
 class SentenceDataset(Dataset):
@@ -91,8 +105,18 @@ def _annotate(ner_model, input_sentences):
         samples.append(record)
     return samples
 
-def run(args, logger, model):
-    pass
+def run(args, logger):
+
+    if args.dataprep:
+        logger.info("Preparing test data")
+        
+        if not args.uuid_fpath or not args.test_fpath:
+            logger.error("--uuid_fpath and --test_fpath required for output")
+            return 1
+
+        return sentence_dataset_prep(args.uuid_fpath, args.test_fpath, *args.test_files)
+
+    return 1
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -117,6 +141,28 @@ if __name__ == "__main__":
         "--output_size", action="store_true", help="Size of total amount of data."
     )
 
+    parser.add_argument(
+        "--output_path",  help="Output filepath for predictions."
+    )
+
+    # data preparation
+
+    parser.add_argument(
+        "--dataprep", action="store_true", help="Prepare test data for NER model."
+    )
+
+    parser.add_argument(
+        "--uuid_fpath", help="Filepath for UUID mapped to each sentence."
+    )
+
+    parser.add_argument(
+        "--test_fpath", help="Filepath for prepared test file."
+    )
+
+    parser.add_argument(
+        "--test_files", nargs="+",
+        help="Filepaths for test files to be prepared."
+    )
 
     #input_size = 5
     #output_size = 2
@@ -125,24 +171,30 @@ if __name__ == "__main__":
     #data_size = 100
 
     args = parser.parse_args()
-    run(args, logger, *models)
+    if not args.output_path:
+        raise IOError("Output path mandatory")
+    logger = utils.get_logger(args.output_path)
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    rand_loader = DataLoader(dataset=SentenceDataset(input_size, data_size),
-            batch_size=batch_size, shuffle=True)
+    if run(args, logger) != 0:
+        parser.print_help()
 
-    ner_model = NER.get_model()
+    #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    if torch.cuda.device_count() > 1:
-        print("Let's use ", torch.cuda.device_count(), " GPU's!")
-        ner_model = nn.DataParallel(ner_model)
+    #rand_loader = DataLoader(dataset=SentenceDataset(input_size, data_size),
+    #        batch_size=batch_size, shuffle=True)
 
-    ner_model.to(device)
+    #ner_model = NER.get_model()
 
-    for data in rand_loader:
-        input = data.to(device)
-        output = ner_model.predict(input)
-        print("Outside: input size", input.size(),
-                "output_size", output.size())
+    #if torch.cuda.device_count() > 1:
+    #    print("Let's use ", torch.cuda.device_count(), " GPU's!")
+    #    ner_model = nn.DataParallel(ner_model)
+
+    #ner_model.to(device)
+
+    #for data in rand_loader:
+    #    input = data.to(device)
+    #    output = ner_model.predict(input)
+    #    print("Outside: input size", input.size(),
+    #            "output_size", output.size())
 
