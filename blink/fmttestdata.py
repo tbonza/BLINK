@@ -107,6 +107,34 @@ def _annotate(ner_model, input_sentences):
         samples.append(record)
     return samples
 
+def batch_ner():
+
+    #input_size = 5
+    #output_size = 2
+
+    #batch_size = 30
+    #data_size = 100
+
+    #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    #rand_loader = DataLoader(dataset=SentenceDataset(input_size, data_size),
+    #        batch_size=batch_size, shuffle=False)
+
+    #ner_model = NER.get_model()
+
+    #if torch.cuda.device_count() > 1:
+    #    print("Let's use ", torch.cuda.device_count(), " GPU's!")
+    #    ner_model = nn.DataParallel(ner_model)
+
+    #ner_model.to(device)
+
+    #for data in rand_loader:
+    #    input = data.to(device)
+    #    output = ner_model.predict(input)
+    #    print("Outside: input size", input.size(),
+    #            "output_size", output.size())
+    return 0
+
 def run(args, logger):
 
     if not os.path.exists(args.workdir):
@@ -122,33 +150,32 @@ def run(args, logger):
         return sentence_dataset_prep(args.workdir, args.uuid_fpath, args.test_fpath, 
                 *args.test_files)
 
+    elif args.nermodel:
+        logger.info("Running batch predictions for NER model")
+        return batch_ner()
+
     return 1
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-
-    # test data
-
-    parser.add_argument(
-        "--test_input_size", "-i", action="store_true", help="Size of test input."
-    )
-
-    parser.add_argument(
-        "--test_output_size", "-o", action="store_true", help="Size of test output."
-    )
-
-    # batch 
-
-    parser.add_argument(
-        "--batch_size", action="store_true", help="Size of each batch processed."
-    )
-
-    parser.add_argument(
-        "--output_size", action="store_true", help="Size of total amount of data."
-    )
-
+    
     parser.add_argument(
         "--workdir",  help="Working directory for test and log files."
+    )
+
+    # NER model batch predictions 
+
+    parser.add_argument(
+        "--nermodel", action="store_true", help="Select NER model for batch preditions."
+    )
+
+    parser.add_argument(
+        "--batch_size", type=int, help="Size of each batch processed."
+    )
+
+    parser.add_argument(
+        "--test_fpath", default="test_file.txt",
+        help="Filepath for prepared test file."
     )
 
     # data preparation
@@ -158,23 +185,14 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--uuid_fpath", help="Filepath for UUID mapped to each sentence."
-    )
-
-    parser.add_argument(
-        "--test_fpath", help="Filepath for prepared test file."
+        "--uuid_fpath", default="test_uuid.json",
+        help="Filepath for UUID mapped to each sentence."
     )
 
     parser.add_argument(
         "--test_files", nargs="+",
         help="Filepaths for test files to be prepared."
     )
-
-    #input_size = 5
-    #output_size = 2
-
-    #batch_size = 30
-    #data_size = 100
 
     args = parser.parse_args()
     if not args.workdir:
@@ -183,22 +201,3 @@ if __name__ == "__main__":
 
     if run(args, logger) != 0:
         parser.print_help()
-
-    #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-    #rand_loader = DataLoader(dataset=SentenceDataset(input_size, data_size),
-    #        batch_size=batch_size, shuffle=True)
-
-    #ner_model = NER.get_model()
-
-    #if torch.cuda.device_count() > 1:
-    #    print("Let's use ", torch.cuda.device_count(), " GPU's!")
-    #    ner_model = nn.DataParallel(ner_model)
-
-    #ner_model.to(device)
-
-    #for data in rand_loader:
-    #    input = data.to(device)
-    #    output = ner_model.predict(input)
-    #    print("Outside: input size", input.size(),
-    #            "output_size", output.size())
