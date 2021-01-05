@@ -65,7 +65,6 @@ def sentence_dataset_prep(workdir:str, uuid_fpath:str, test_fpath:str, *fpaths):
     logger.info("Wrote out test file. {}".format(os.path.join(workdir, test_fpath)))
     return 0
 
-
 class SentenceDataset(Dataset):
     """ Sentence Dataset
 
@@ -75,13 +74,15 @@ class SentenceDataset(Dataset):
     """
 
     def __init__(self, fpath:str):
-        pass
+        with open(fpath,"r") as f:
+            self.data = f.readlines()
     
     def __len__(self):
-        return 0
+        return len(self.data)
 
     def __getitem__(self, idx):
-        pass
+        self.data[idx]
+
 
 def _annotate(ner_model, input_sentences):
     ner_output_data = ner_model.predict(input_sentences)
@@ -147,11 +148,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-<<<<<<< HEAD
-        "--output_path",  help="Output filepath for predictions."
-=======
         "--workdir",  help="Working directory for test and log files."
->>>>>>> cliupdate
     )
 
     # data preparation
