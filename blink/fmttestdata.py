@@ -1,8 +1,9 @@
 import argparse
 from collections import defaultdict
-from datetime import datetime
 import csv
+from datetime import datetime
 import json
+import os
 import re
 
 import torch
@@ -24,7 +25,7 @@ def sentence_dataset_tokenizer(inst:str) -> list:
             if len(sentence) > 0:
                 yield sentence
 
-def sentence_dataset_prep(uuid_fpath:str, test_fpath:str, *fpaths):
+def sentence_dataset_prep(workdir:str, uuid_fpath:str, test_fpath:str, *fpaths):
     """ Writes out a UUID file and a input file for SentenceDataset. 
 
         ***
@@ -52,16 +53,16 @@ def sentence_dataset_prep(uuid_fpath:str, test_fpath:str, *fpaths):
 
         prep.append((fpath, uuids))
 
-    with open(uuid_fpath, "w") as f:
+    with open(os.path.join(workdir, uuid_fpath), "w") as f:
         json.dump(prep, f)
-    logger.info("Wrote out test UUID file. {}".format(uuid_fpath))
+    logger.info("Wrote out test UUID file. {}".format(os.path.join(workdir, uuid_fpath)))
 
-    with open(test_fpath, "w") as f:
+    with open(os.path.join(workdir, test_fpath), "w") as f:
         for _, uuids in prep:
             for sentence in uuids.keys():
 
                 f.write(sentence + "\n")
-    logger.info("Wrote out test file. {}".format(test_fpath))
+    logger.info("Wrote out test file. {}".format(os.path.join(workdir, test_fpath)))
     return 0
 
 
@@ -107,6 +108,9 @@ def _annotate(ner_model, input_sentences):
 
 def run(args, logger):
 
+    if not os.path.exists(args.workdir):
+        os.makedirs(args.workdir)
+
     if args.dataprep:
         logger.info("Preparing test data")
         
@@ -114,7 +118,8 @@ def run(args, logger):
             logger.error("--uuid_fpath and --test_fpath required for output")
             return 1
 
-        return sentence_dataset_prep(args.uuid_fpath, args.test_fpath, *args.test_files)
+        return sentence_dataset_prep(args.workdir, args.uuid_fpath, args.test_fpath, 
+                *args.test_files)
 
     return 1
 
@@ -142,7 +147,11 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+<<<<<<< HEAD
         "--output_path",  help="Output filepath for predictions."
+=======
+        "--workdir",  help="Working directory for test and log files."
+>>>>>>> cliupdate
     )
 
     # data preparation
@@ -171,10 +180,9 @@ if __name__ == "__main__":
     #data_size = 100
 
     args = parser.parse_args()
-    if not args.output_path:
-        raise IOError("Output path mandatory")
-    logger = utils.get_logger(args.output_path)
-
+    if not args.workdir:
+        raise IOError("Working directory path mandatory")
+    logger = utils.get_logger(args.workdir)
 
     if run(args, logger) != 0:
         parser.print_help()
@@ -197,4 +205,3 @@ if __name__ == "__main__":
     #    output = ner_model.predict(input)
     #    print("Outside: input size", input.size(),
     #            "output_size", output.size())
-
