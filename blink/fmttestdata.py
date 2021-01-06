@@ -107,32 +107,29 @@ def _annotate(ner_model, input_sentences):
         samples.append(record)
     return samples
 
-def batch_ner():
+def batch_ner(args, logger):
 
-    #input_size = 5
-    #output_size = 2
+    batch_size = args.batch_size
+    data_path = os.path.join(args.workdir, args.test_fpath)
 
-    #batch_size = 30
-    #data_size = 100
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    data_loader = DataLoader(dataset=SentenceDataset(fpath=data_path),
+            batch_size=batch_size, shuffle=False)
 
-    #rand_loader = DataLoader(dataset=SentenceDataset(input_size, data_size),
-    #        batch_size=batch_size, shuffle=False)
+    ner_model = NER.get_model()
 
-    #ner_model = NER.get_model()
+    if torch.cuda.device_count() > 1:
+        logger.info("Using {} GPUs.".format(torch.cuda.device_count())
+        ner_model = nn.DataParallel(ner_model)
 
-    #if torch.cuda.device_count() > 1:
-    #    print("Let's use ", torch.cuda.device_count(), " GPU's!")
-    #    ner_model = nn.DataParallel(ner_model)
+    ner_model.to(device)
 
-    #ner_model.to(device)
-
-    #for data in rand_loader:
-    #    input = data.to(device)
-    #    output = ner_model.predict(input)
-    #    print("Outside: input size", input.size(),
-    #            "output_size", output.size())
+    for data in data_loader:
+        input = data.to(device)
+        output = ner_model.predict(input)
+        logger.info("Input size {}, output size {}".\
+                format(input.size(), output.size()))
     return 0
 
 def run(args, logger):
@@ -152,7 +149,7 @@ def run(args, logger):
 
     elif args.nermodel:
         logger.info("Running batch predictions for NER model")
-        return batch_ner()
+        return batch_ner(args, logger)
 
     return 1
 
