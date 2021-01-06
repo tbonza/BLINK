@@ -16,6 +16,66 @@ import blink.candidate_ranking.utils as utils
 def create_uuid(kindofuniqueid:str, datetimestr:str)->str:
     return kindofuniqueid + "_" +str(datetime.fromisoformat(datetimestr)).replace(" ","T")
 
+def map_attributes(attrs:list, logger)->list:
+    """ Given an attribute mapping, convert csv row to standard format. 
+
+    Example: "uuid:pplcd,lastdate[datetime]; text:discussion_summary" becomes
+        { "uuid": [("str", "pplcd"), ("datetime", "lastdate")], "text": ["discussion_summary"] }
+
+    Datetime is only supported if it's in ISO format.
+    """
+    mappings = []
+    template = {
+        "uuid": "",
+        "text": "",
+    }
+    for attrstr in attrs:
+
+        am = template.copy()
+        for segment in attrstr.split(";"):
+            if "uuid:" in segment:
+                u = []
+                _, uuids = segment.split(":")
+                for inst in uuids.split(","):
+
+                    if "[datetime]" in inst:
+                        u.append(("datetime", inst.replace("[datetime]","").strip()))
+
+                    else:
+                        u.append(("str", inst.strip()))
+
+                am["uuid"] = u
+
+            elif "text:" in segment:
+                t = []
+                _, texts = segment.split(":")
+                for inst in texts.split(","):
+                    t.append(inst)
+
+                am["text"] = t
+
+            else:
+                logger.error("Attribute type not supported: {}".format(segment))
+                return {}, 1
+
+        mappings.append(am)
+    
+    return mappings, 0
+
+def verify_fieldnames(fieldnames:set, attrmaps:list) -> dict:
+    for attrmap in attrmaps:
+        cols = []
+        for k,v in attrmap.items():
+            if k == "uuid":
+                cols.append(v[1])
+            else:
+                cols.append(v)
+
+        if len(set(cols) - fieldnames) == 0:
+            return attrmap, 0
+
+    return {}, 1
+
 def sentence_dataset_tokenizer(inst:str) -> list:
     inst = inst.splitlines()
     pat = re.compile("\.\s+")
@@ -25,7 +85,7 @@ def sentence_dataset_tokenizer(inst:str) -> list:
             if len(sentence) > 0:
                 yield sentence
 
-def sentence_dataset_prep(workdir:str, uuid_fpath:str, test_fpath:str, *fpaths):
+def sentence_dataset_prep(workdir:str, uuid_fpath:str, test_fpath:str, attrmaps:list, *fpaths):
     """ Writes out a UUID file and a input file for SentenceDataset. 
 
         ***
@@ -43,13 +103,26 @@ def sentence_dataset_prep(workdir:str, uuid_fpath:str, test_fpath:str, *fpaths):
         with open(fpath, "r") as f:
             reader = csv.DictReader(f)
 
-            for row in reader:
+            if len(attrmaps) > 0:
+                attrs, status = map_attributes(attrs, logger)
+                if status != 0:
+                    return status
 
-                instid = row[UUID]
-                text = row[TEXT]
+                attrmap, status = verify_fieldnames(set(reader.fieldnames), attrs)
+                if status != 0:
+                    return status
 
-                for sentence in sentence_dataset_tokenizer(text):
-                    uuids[sentence].append(instid)
+                # TODO map attrs to standard attrs
+
+            else:
+
+                for row in reader:
+
+                    instid = row[UUID]
+                    text = row[TEXT]
+
+                    for sentence in sentence_dataset_tokenizer(text):
+                        uuids[sentence].append(instid)
 
         prep.append((fpath, uuids))
 
@@ -120,7 +193,7 @@ def batch_ner(args, logger):
     ner_model = NER.get_model()
 
     if torch.cuda.device_count() > 1:
-        logger.info("Using {} GPUs.".format(torch.cuda.device_count())
+        logger.info("Using {} GPUs.".format(torch.cuda.device_count()))
         ner_model = nn.DataParallel(ner_model)
 
     ner_model.to(device)
@@ -179,6 +252,11 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--dataprep", action="store_true", help="Prepare test data for NER model."
+    )
+
+    parser.add_argument(
+        "--attrmaps", nargs="+",
+        help="Map attributes to standard attributes for test files."
     )
 
     parser.add_argument(
