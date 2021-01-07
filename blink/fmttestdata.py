@@ -174,7 +174,7 @@ def sentence_dataset_prep(workdir:str, uuid_fpath:str, test_fpath:str, attrmaps:
     logger.info("Wrote out test file. {}".format(os.path.join(workdir, test_fpath)))
     return 0
 
-def annotate(args):
+def pannotate(args):
     ner_model, input_sentences, logger = args
     ner_output_data = ner_model.predict(input_sentences)
     sentences = ner_output_data["sentences"]
@@ -218,8 +218,11 @@ def batch_ner(args, logger):
     logger.info("Starting NER predictions")
     results = []
     with Pool(cpu_count()) as p:
-        results = p.map(annotate, test_batches)
+        results = p.map(pannotate, test_batches)
     logger.info("Finished NER predictions")
+
+    with open(os.path.join(args.workdir, args.predict_fpath), "w") as f:
+        json.dump(results, f)
 
     return 0
 
@@ -264,6 +267,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--test_fpath", default="test_file.txt",
         help="Filepath for prepared test file."
+    )
+
+    parser.add_argument(
+        "--predict_fpath", default="test_predict.json",
+        help="Filepath for model batch predictions."
     )
 
     # data preparation
