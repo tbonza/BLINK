@@ -67,10 +67,10 @@ def verify_fieldnames(fieldnames:set, attrmaps:list) -> dict:
         cols = []
         for k,v in attrmap.items():
             if k == "uuid":
-                cols.append(v[1])
+                for inst in v:
+                    cols.append(inst[1])
             else:
-                cols.append(v)
-
+                cols.extend(v)
         if len(set(cols) - fieldnames) == 0:
             return attrmap, 0
 
@@ -85,6 +85,34 @@ def sentence_dataset_tokenizer(inst:str) -> list:
             if len(sentence) > 0:
                 yield sentence
 
+def isodate_tostr(dt:str) -> str:
+    return str(datetime.fromisoformat(dt)).replace(" ","T")
+
+def refmt_row(row:dict, attrmap:dict, logger) -> dict:
+    uuid = ""
+    text = ""
+    keyz = { i[1]:i[0] for i in attrmap["uuid"] }
+    txtz = set(attrmap["text"])
+    for k in row.keys():
+
+        if k in keyz:
+            
+            if keyz[k] == "str":
+                uuid += (row[k] + "_")
+
+            elif keyz[k] == "datetime":
+                uuid += (isodate_tostr(row[k]) + "_")
+
+            else:
+                logger.error("uuid type not supported. {}".format(k))
+                return {}, 1
+
+        elif k in txtz:
+            text += (row[k] + "\n")
+
+    uuid = uuid[:-1] # remove trailing underscore
+    return {"uuid": uuid, "text": text}, 0
+
 def sentence_dataset_prep(workdir:str, uuid_fpath:str, test_fpath:str, attrmaps:list, *fpaths):
     """ Writes out a UUID file and a input file for SentenceDataset. 
 
@@ -95,6 +123,14 @@ def sentence_dataset_prep(workdir:str, uuid_fpath:str, test_fpath:str, attrmaps:
     UUID = "uuid"
     TEXT = "text"
     prep = []
+    amap = False
+
+    if len(attrmaps) > 0:
+        attrmaps, status = map_attributes(attrmaps, logger)
+        if status != 0:
+            return status
+        amap = True
+
     for fpath in fpaths:
         logger.info("Processing {}".format(fpath))
 
@@ -103,26 +139,28 @@ def sentence_dataset_prep(workdir:str, uuid_fpath:str, test_fpath:str, attrmaps:
         with open(fpath, "r") as f:
             reader = csv.DictReader(f)
 
-            if len(attrmaps) > 0:
-                attrs, status = map_attributes(attrs, logger)
+            if amap:
+            
+                fieldnames = set(reader.fieldnames)
+                attrmap, status = verify_fieldnames(fieldnames, attrmaps)
                 if status != 0:
                     return status
 
-                attrmap, status = verify_fieldnames(set(reader.fieldnames), attrs)
-                if status != 0:
-                    return status
+                for row in reader:
+                    
+                    row, status = refmt_row(row, attrmap, logger)
 
-                # TODO map attrs to standard attrs
-
+                    if status == 0:
+                        for sentence in sentence_dataset_tokenizer(row[TEXT]):
+                            uuids[sentence].append(row[UUID])
+                    else:
+                        logger.warning("Unable to convert row to standard attributes. {}".format(row))
             else:
 
                 for row in reader:
 
-                    instid = row[UUID]
-                    text = row[TEXT]
-
-                    for sentence in sentence_dataset_tokenizer(text):
-                        uuids[sentence].append(instid)
+                    for sentence in sentence_dataset_tokenizer(row[TEXT]):
+                        uuids[sentence].append(row[UUID])
 
         prep.append((fpath, uuids))
 
@@ -218,7 +256,7 @@ def run(args, logger):
             return 1
 
         return sentence_dataset_prep(args.workdir, args.uuid_fpath, args.test_fpath, 
-                *args.test_files)
+                [*args.attrmaps], *args.test_files)
 
     elif args.nermodel:
         logger.info("Running batch predictions for NER model")
