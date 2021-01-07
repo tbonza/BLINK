@@ -5,12 +5,10 @@ from datetime import datetime
 import json
 import os
 import re
-
-import torch
-import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+from multiprocessing import cpu_count, Pool, current_process
 
 import blink.ner as NER
+from flair.models import SequenceTagger
 import blink.candidate_ranking.utils as utils
 
 def create_uuid(kindofuniqueid:str, datetimestr:str)->str:
@@ -176,26 +174,8 @@ def sentence_dataset_prep(workdir:str, uuid_fpath:str, test_fpath:str, attrmaps:
     logger.info("Wrote out test file. {}".format(os.path.join(workdir, test_fpath)))
     return 0
 
-class SentenceDataset(Dataset):
-    """ Sentence Dataset
-
-    Input file should be a newline delimited file with one
-    sentence per line. Each line should be unique so we
-    don't run the same prediction multiple times.
-    """
-
-    def __init__(self, fpath:str):
-        with open(fpath,"r") as f:
-            self.data = f.readlines()
-    
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        self.data[idx]
-
-
-def _annotate(ner_model, input_sentences):
+def annotate(args):
+    ner_model, input_sentences, logger = args
     ner_output_data = ner_model.predict(input_sentences)
     sentences = ner_output_data["sentences"]
     mentions = ner_output_data["mentions"]
@@ -216,31 +196,31 @@ def _annotate(ner_model, input_sentences):
         record["end_pos"] = int(mention["end_pos"])
         record["sent_idx"] = mention["sent_idx"]
         samples.append(record)
+    current = current_process()
+    logger.info("Processed batch size {} using {}".\
+            format(len(input_sentences), current.name))
     return samples
 
 def batch_ner(args, logger):
 
     batch_size = args.batch_size
     data_path = os.path.join(args.workdir, args.test_fpath)
-
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-    data_loader = DataLoader(dataset=SentenceDataset(fpath=data_path),
-            batch_size=batch_size, shuffle=False)
-
     ner_model = NER.get_model()
 
-    if torch.cuda.device_count() > 1:
-        logger.info("Using {} GPUs.".format(torch.cuda.device_count()))
-        ner_model = nn.DataParallel(ner_model)
+    with open(data_path,"r") as f:
+        test_data = f.readlines()
 
-    ner_model.to(device)
+    logger.info("Read test data with {} instances.".format(len(test_data)))
+    test_batches = [ (ner_model, test_data[i:i+batch_size], logger) 
+            for i in range(0,len(test_data),batch_size) ]
+    del test_data
 
-    for data in data_loader:
-        input = data.to(device)
-        output = ner_model.predict(input)
-        logger.info("Input size {}, output size {}".\
-                format(input.size(), output.size()))
+    logger.info("Starting NER predictions")
+    results = []
+    with Pool(cpu_count()) as p:
+        results = p.map(annotate, test_batches)
+    logger.info("Finished NER predictions")
+
     return 0
 
 def run(args, logger):
