@@ -11,10 +11,10 @@ import blink.ner as NER
 from flair.models import SequenceTagger
 import blink.candidate_ranking.utils as utils
 
-def create_uuid(kindofuniqueid:str, datetimestr:str)->str:
+def _create_uuid(kindofuniqueid:str, datetimestr:str)->str:
     return kindofuniqueid + "_" +str(datetime.fromisoformat(datetimestr)).replace(" ","T")
 
-def map_attributes(attrs:list, logger)->list:
+def _map_attributes(attrs:list, logger)->list:
     """ Given an attribute mapping, convert csv row to standard format. 
 
     Example: "uuid:pplcd,lastdate[datetime]; text:discussion_summary" becomes
@@ -60,7 +60,7 @@ def map_attributes(attrs:list, logger)->list:
     
     return mappings, 0
 
-def verify_fieldnames(fieldnames:set, attrmaps:list) -> dict:
+def _verify_fieldnames(fieldnames:set, attrmaps:list) -> dict:
     for attrmap in attrmaps:
         cols = []
         for k,v in attrmap.items():
@@ -74,7 +74,7 @@ def verify_fieldnames(fieldnames:set, attrmaps:list) -> dict:
 
     return {}, 1
 
-def sentence_dataset_tokenizer(inst:str) -> list:
+def _sentence_dataset_tokenizer(inst:str) -> list:
     inst = inst.splitlines()
     pat = re.compile("\.\s+")
     for section in inst:
@@ -83,10 +83,10 @@ def sentence_dataset_tokenizer(inst:str) -> list:
             if len(sentence) > 0:
                 yield sentence
 
-def isodate_tostr(dt:str) -> str:
+def _isodate_tostr(dt:str) -> str:
     return str(datetime.fromisoformat(dt)).replace(" ","T")
 
-def refmt_row(row:dict, attrmap:dict, logger) -> dict:
+def _refmt_row(row:dict, attrmap:dict, logger) -> dict:
     uuid = ""
     text = ""
     keyz = { i[1]:i[0] for i in attrmap["uuid"] }
@@ -99,7 +99,7 @@ def refmt_row(row:dict, attrmap:dict, logger) -> dict:
                 uuid += (row[k] + "_")
 
             elif keyz[k] == "datetime":
-                uuid += (isodate_tostr(row[k]) + "_")
+                uuid += (_isodate_tostr(row[k]) + "_")
 
             else:
                 logger.error("uuid type not supported. {}".format(k))
@@ -111,7 +111,7 @@ def refmt_row(row:dict, attrmap:dict, logger) -> dict:
     uuid = uuid[:-1] # remove trailing underscore
     return {"uuid": uuid, "text": text}, 0
 
-def sentence_dataset_prep(workdir:str, uuid_fpath:str, test_fpath:str, attrmaps:list, *fpaths):
+def _sentence_dataset_prep(workdir:str, uuid_fpath:str, test_fpath:str, attrmaps:list, *fpaths):
     """ Writes out a UUID file and a input file for SentenceDataset. 
 
         ***
@@ -124,7 +124,7 @@ def sentence_dataset_prep(workdir:str, uuid_fpath:str, test_fpath:str, attrmaps:
     amap = False
 
     if len(attrmaps) > 0:
-        attrmaps, status = map_attributes(attrmaps, logger)
+        attrmaps, status = _map_attributes(attrmaps, logger)
         if status != 0:
             return status
         amap = True
@@ -140,16 +140,16 @@ def sentence_dataset_prep(workdir:str, uuid_fpath:str, test_fpath:str, attrmaps:
             if amap:
             
                 fieldnames = set(reader.fieldnames)
-                attrmap, status = verify_fieldnames(fieldnames, attrmaps)
+                attrmap, status = _verify_fieldnames(fieldnames, attrmaps)
                 if status != 0:
                     return status
 
                 for row in reader:
                     
-                    row, status = refmt_row(row, attrmap, logger)
+                    row, status = _refmt_row(row, attrmap, logger)
 
                     if status == 0:
-                        for sentence in sentence_dataset_tokenizer(row[TEXT]):
+                        for sentence in _sentence_dataset_tokenizer(row[TEXT]):
                             uuids[sentence].append(row[UUID])
                     else:
                         logger.warning("Unable to convert row to standard attributes. {}".format(row))
@@ -157,7 +157,7 @@ def sentence_dataset_prep(workdir:str, uuid_fpath:str, test_fpath:str, attrmaps:
 
                 for row in reader:
 
-                    for sentence in sentence_dataset_tokenizer(row[TEXT]):
+                    for sentence in _sentence_dataset_tokenizer(row[TEXT]):
                         uuids[sentence].append(row[UUID])
 
         prep.append((fpath, uuids))
@@ -174,7 +174,7 @@ def sentence_dataset_prep(workdir:str, uuid_fpath:str, test_fpath:str, attrmaps:
     logger.info("Wrote out test file. {}".format(os.path.join(workdir, test_fpath)))
     return 0
 
-def pannotate(args):
+def _pannotate(args):
     ner_model, input_sentences, logger = args
     ner_output_data = ner_model.predict(input_sentences)
     sentences = ner_output_data["sentences"]
@@ -201,7 +201,7 @@ def pannotate(args):
             format(len(input_sentences), current.name))
     return samples
 
-def batch_ner(args, logger):
+def _batch_ner(args, logger):
 
     batch_size = args.batch_size
     data_path = os.path.join(args.workdir, args.test_fpath)
@@ -218,7 +218,7 @@ def batch_ner(args, logger):
     logger.info("Starting NER predictions")
     results = []
     with Pool(cpu_count()) as p:
-        results = p.map(pannotate, test_batches)
+        results = p.map(_pannotate, test_batches)
     logger.info("Finished NER predictions")
 
     with open(os.path.join(args.workdir, args.predict_fpath), "w") as f:
@@ -238,12 +238,12 @@ def run(args, logger):
             logger.error("--uuid_fpath and --test_fpath required for output")
             return 1
 
-        return sentence_dataset_prep(args.workdir, args.uuid_fpath, args.test_fpath, 
+        return _sentence_dataset_prep(args.workdir, args.uuid_fpath, args.test_fpath, 
                 [*args.attrmaps], *args.test_files)
 
     elif args.nermodel:
         logger.info("Running batch predictions for NER model")
-        return batch_ner(args, logger)
+        return _batch_ner(args, logger)
 
     return 1
 
