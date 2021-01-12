@@ -215,9 +215,9 @@ def _batch_ner(args, logger):
             for i in range(0,len(test_data),batch_size) ]
     del test_data
 
-    logger.info("Starting NER predictions")
+    logger.info("Starting NER predictions using {} CPU cores".format(args.cores))
     results = []
-    with Pool(cpu_count()) as p:
+    with Pool(args.cores) as p:
         results = p.map(_pannotate, test_batches)
     logger.info("Finished NER predictions")
 
@@ -227,6 +227,49 @@ def _batch_ner(args, logger):
     return 0
 
 def run(args, logger):
+    """ Batch NER Predictions using CPU
+
+    Creating test data:
+
+        We assume your test data is in CSV format that will need to be transformed
+        into the standard format for use in batch predictions. The following args
+        will create both the standard text file and a mapping of text to unique IDs
+        as a JSON file. The simplest set of commands is
+
+            python fmttestdata.py --workdir blink/testdata --dataprep \
+                    --attrmaps "uuid:pplcd,lastdate[datetime];text:discussion_summary" \
+                    --test_files ~/Downloads/my_test.csv
+
+        These commands assign a working directory using the relative path "blink/testdata".
+        The "testdata" folder will be created if it does not exist. We use the "--dataprep"
+        flag with no argument to specify the test data preparation task needs to be completed.
+        The "attrmaps" argument maps your existing attributes to the standard attributes
+        needed to process the test data. You can assign multiple attribute maps, one per each
+        set of attributes, if you have multiple files with different schemas. This script will
+        assign the proper schema by looking at the attribute names when reading each file. The
+        "attrmaps" argument also includes an option to convert datetime attributes into part of
+        your UUID standard attribute. Datetimes must be in ISO 8601 format and cannot be 
+        arbitrary ISO 8601 strings. The "test_files" argument allows for paths to multiple 
+        test files containing the schema specified using the "attrmaps" argument. Output will
+        write "test_file.txt" and "test_uuid.json" to the specified working directory. You
+        can change these output file names by including "--test_fpath your_file.txt" and
+        "--uuid_fpath "your_uuid.json".
+
+    Running batch NER predictions:
+
+        Batch predictions for NER run on a CPU. We recommend using multiple CPU cores. The
+        following args will create an output predictions file "test_predict.json" in your
+        working directory. This output can then be used with BLINK.
+
+            python fmttestdata.py --workdir blink/testdata --nermodel \
+                    --batch_size 10000 --cores
+
+        This command assigns a working directory and uses the "nermodel" arg to specify 
+        the batch NER prediction task. It's recommended that you specify your batch size
+        which refers to the number of instances per Python process. Using the "cores" arg
+        will include the maximum number of CPU cores unless you specify a smaller number
+        of cores. You can choose a different prediction output with "--predict_fpath".
+    """
 
     if not os.path.exists(args.workdir):
         os.makedirs(args.workdir)
@@ -261,7 +304,8 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--batch_size", type=int, help="Size of each batch processed."
+        "--batch_size", type=int, default=1000,
+        help="Size of each batch processed."
     )
 
     parser.add_argument(
@@ -272,6 +316,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--predict_fpath", default="test_predict.json",
         help="Filepath for model batch predictions."
+    )
+
+    parser.add_argument(
+        "--cores", type=int, default=cpu_count(),
+        help="Number of CPU cores used during batch predictions."
     )
 
     # data preparation
