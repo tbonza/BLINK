@@ -60,7 +60,7 @@ def modify(context_input, candidate_input, max_seq_length):
     return torch.LongTensor(new_input)
 
 
-def evaluate(reranker, eval_dataloader, device, logger, context_length, silent=True):
+def evaluate(reranker, eval_dataloader, device, logger, context_length, params, silent=True):
     reranker.model.eval()
     if silent:
         iter_ = eval_dataloader
@@ -255,6 +255,7 @@ def main(params):
         device=device,
         logger=logger,
         context_length=context_length,
+        params=params,
         silent=params["silent"],
     )
 
@@ -333,6 +334,7 @@ def main(params):
                     device=device,
                     logger=logger,
                     context_length=context_length,
+                    params=params,
                     silent=params["silent"],
                 )
                 logger.info("***** Saving fine - tuned model *****")
@@ -358,7 +360,8 @@ def main(params):
             device=device,
             logger=logger,
             context_length=context_length,
-            silent=params["silent"],
+            params=params,
+            silent=params["silent"]
         )
 
         ls = [best_score, results["normalized_accuracy"]]
