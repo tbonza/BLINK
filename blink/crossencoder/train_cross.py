@@ -256,7 +256,7 @@ def main(params):
         logger=logger,
         context_length=context_length,
         params=params,
-        silent=params["silent"],
+        silent=params["silent"]
     )
 
     number_of_samples_per_dataset = {}
@@ -335,7 +335,7 @@ def main(params):
                     logger=logger,
                     context_length=context_length,
                     params=params,
-                    silent=params["silent"],
+                    silent=params["silent"]
                 )
                 logger.info("***** Saving fine - tuned model *****")
                 epoch_output_folder_path = os.path.join(
