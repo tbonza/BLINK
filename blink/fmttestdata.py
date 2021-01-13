@@ -175,7 +175,8 @@ def _sentence_dataset_prep(workdir:str, uuid_fpath:str, test_fpath:str, attrmaps
     return 0
 
 def _pannotate(args):
-    ner_model, input_sentences, logger = args
+    ner_model = NER.get_model()
+    input_sentences, logger = args
     ner_output_data = ner_model.predict(input_sentences)
     sentences = ner_output_data["sentences"]
     mentions = ner_output_data["mentions"]
@@ -205,13 +206,12 @@ def _batch_ner(args, logger):
 
     batch_size = args.batch_size
     data_path = os.path.join(args.workdir, args.test_fpath)
-    ner_model = NER.get_model()
 
     with open(data_path,"r") as f:
         test_data = f.readlines()
 
     logger.info("Read test data with {} instances.".format(len(test_data)))
-    test_batches = [ (ner_model, test_data[i:i+batch_size], logger) 
+    test_batches = [ (test_data[i:i+batch_size], logger) 
             for i in range(0,len(test_data),batch_size) ]
     del test_data
 
