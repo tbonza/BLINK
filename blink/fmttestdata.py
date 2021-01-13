@@ -5,11 +5,12 @@ from datetime import datetime
 import json
 import os
 import re
-from multiprocessing import cpu_count, Pool, current_process
+#from multiprocessing import cpu_count, Pool, current_process
 
 import blink.ner as NER
 from flair.models import SequenceTagger
 import blink.candidate_ranking.utils as utils
+import torch.multiprocessing as mp
 
 def _create_uuid(kindofuniqueid:str, datetimestr:str)->str:
     return kindofuniqueid + "_" +str(datetime.fromisoformat(datetimestr)).replace(" ","T")
