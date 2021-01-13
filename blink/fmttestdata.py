@@ -221,8 +221,8 @@ def _batch_ner(args, logger):
 
     logger.info("Starting NER predictions using {} CPU cores".format(args.cores))
     results = []
-    with Pool(args.cores) as p:
-        results = p.map(_pannotate, test_batches)
+    #with Pool(args.cores) as p:
+    #    results = p.map(_pannotate, test_batches)
     logger.info("Finished NER predictions")
 
     with open(os.path.join(args.workdir, args.predict_fpath), "w") as f:
