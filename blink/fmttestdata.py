@@ -175,10 +175,11 @@ def _sentence_dataset_prep(workdir:str, uuid_fpath:str, test_fpath:str, attrmaps
     return 0
 
 def _pannotate(args):
-    logger.info("Started batch size {} using {}".\
-            format(len(input_sentences), current.name))
     ner_model = NER.get_model()
     input_sentences, logger = args
+    logger.info("Started batch size {} using {}".\
+            format(len(input_sentences), current.name))
+
     ner_output_data = ner_model.predict(input_sentences)
     sentences = ner_output_data["sentences"]
     mentions = ner_output_data["mentions"]
