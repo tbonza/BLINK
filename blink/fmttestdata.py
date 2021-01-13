@@ -120,7 +120,7 @@ def batch_ner(args, logger):
     ner_model = NER.get_model()
 
     if torch.cuda.device_count() > 1:
-        logger.info("Using {} GPUs.".format(torch.cuda.device_count())
+        logger.info("Using {} GPUs.".format(torch.cuda.device_count()))
         ner_model = nn.DataParallel(ner_model)
 
     ner_model.to(device)
