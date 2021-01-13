@@ -60,7 +60,7 @@ def modify(context_input, candidate_input, max_seq_length):
     return torch.LongTensor(new_input)
 
 
-def evaluate(reranker, eval_dataloader, device, logger, context_length, silent=True):
+def evaluate(reranker, eval_dataloader, device, logger, context_length, silent=True, params):
     reranker.model.eval()
     if silent:
         iter_ = eval_dataloader
@@ -256,6 +256,7 @@ def main(params):
         logger=logger,
         context_length=context_length,
         silent=params["silent"],
+        params=params
     )
 
     number_of_samples_per_dataset = {}
@@ -334,6 +335,7 @@ def main(params):
                     logger=logger,
                     context_length=context_length,
                     silent=params["silent"],
+                    params=params
                 )
                 logger.info("***** Saving fine - tuned model *****")
                 epoch_output_folder_path = os.path.join(
@@ -359,6 +361,7 @@ def main(params):
             logger=logger,
             context_length=context_length,
             silent=params["silent"],
+            params=params
         )
 
         ls = [best_score, results["normalized_accuracy"]]
