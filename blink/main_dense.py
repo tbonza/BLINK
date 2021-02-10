@@ -421,6 +421,8 @@ def run(
             samples, biencoder.tokenizer, biencoder_params
         )
 
+        logger.info("data loader len {}, type {}".format(len(dataloader), type(dataloader)))
+
         # run biencoder
         if logger:
             logger.info("run biencoder")
