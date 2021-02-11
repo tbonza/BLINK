@@ -413,6 +413,8 @@ def run(
             or samples[0]["label"] == "unknown"
             or samples[0]["label_id"] < 0
         )
+        logger.info("_process_biencoder_dataloader; samples {}, biencoder {}, biencoder_params {}".\
+                format(samples, biencoder, biencoder_params))
 
         # prepare the data for biencoder
         if logger:
@@ -420,6 +422,9 @@ def run(
         dataloader = _process_biencoder_dataloader(
             samples, biencoder.tokenizer, biencoder_params
         )
+
+        logger.info("_run_biencoder; bienceoder {}, dataloader {}, candidate_encoding {}, top_k {}, faiss_indexer {}".\
+                format(biencoder, dataloader, candidate_encoding, top_k, faiss_indexer))
 
         # run biencoder
         if logger:
